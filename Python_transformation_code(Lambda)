@@ -1,0 +1,26 @@
+import json
+
+import os
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+import boto3
+from datetime import datetime
+
+def lambda_handler(event, context):
+    
+    cilent_id = os.environ.get('client_id')
+    client_secret = os.environ.get('client_secret')
+    
+    client_credentials_manager = SpotifyClientCredentials(client_id=cilent_id, client_secret=client_secret)
+    spotify = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+    lz_uri = 'spotify:artist:7HCqGPJcQTyGJ2yqntbuyr'
+    results = spotify.artist_top_tracks(lz_uri)
+    cilent = boto3.client('s3')
+    
+    filename = "spotify_raw_" + str(datetime.now()) + ".json"
+    
+    cilent.put_object(
+        Bucket="spotifyetlbhaskar",
+        Key="rawdata/to_processed/" + filename,
+        Body=json.dumps(results)
+        )
