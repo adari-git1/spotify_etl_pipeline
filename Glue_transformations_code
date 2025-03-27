@@ -10,3 +10,31 @@ sc=SparkContext.getOrCreate()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
+s3_path="s3://spotifyetlbhaskar/rawdata/to_processed/"
+source_dyf=glueContext.create_dynamic_frame.from_options(
+    connection_type="s3",
+    connection_options={
+        "paths": [s3_path]
+    },
+    format="json"
+)
+df=source_dyf.toDF()
+from pyspark.sql.functions import *
+df2=df.withColumn('tracks',explode('tracks')).select(
+    col('tracks.id').alias('Track ID'),
+    col('tracks.name').alias('Song Name'),
+    col('tracks.album.name').alias('Movie Name'),
+col('tracks.popularity').alias('Popularity'),
+col('tracks.album.release_date').alias('Release Date')
+).drop_duplicates(['Track ID'])
+def write_to_s3(df,path_suffix,format_type='csv'):
+    dynamic_frame=DynamicFrame.fromDF(df,glueContext,"dynamic_frame")
+    glueContext.write_dynamic_frame.from_options(
+        frame = dynamic_frame,
+        connection_type = "s3",
+        connection_options = {"path": f"s3://spotifyetlbhaskar/transformdata/{path_suffix}/"},
+        format = format_type
+    )
+write_to_s3(df2, "songdata/song_transformed", "csv")
+
+job.commit()
